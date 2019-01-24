@@ -1,9 +1,9 @@
 <?php
 /**
- * @copyright 2013-2014 City of Bloomington, Indiana
- * @license http://www.gnu.org/licenses/agpl.txt GNU/AGPL, see LICENSE.txt
- * @author Cliff Ingham <inghamn@bloomington.in.gov>
+ * @copyright 2013-2019 City of Bloomington, Indiana
+ * @license http://www.gnu.org/licenses/agpl.txt GNU/AGPL, see LICENSE
  */
+declare (strict_types=1);
 namespace Application\Models;
 use Blossom\Classes\Url;
 
@@ -27,16 +27,16 @@ class AddressService
 	 *
 	 *		All other form elements will be rendered as a plain text input
 	 */
-	public static $customFieldDescriptions = array(
-		'neighborhoodAssociation'=>array(
-			'description'=>'Neighborhood Association',
-			'formElement'=>'select'
-		),
-		'township'=>array(
-			'description'=>'Township',
-			'formElement'=>'select'
-		)
-	);
+	public static $customFieldDescriptions = [
+		'neighborhoodAssociation' => [
+			'description' => 'Neighborhood Association',
+			'formElement' => 'select'
+		],
+		'township' => [
+			'description' => 'Township',
+			'formElement' => 'select'
+		]
+	];
 
 	/**
 	 * Loads the data from your address service for the location
@@ -53,117 +53,124 @@ class AddressService
 	 * When this data is given to a Ticket, any fields that have the same name as Ticket
 	 * properties will update the appropriate Ticket property.
 	 *
-	 * @param string $location
+	 * @param  string $location
 	 * @return array
 	 */
-	public static function getLocationData($location)
+	public static function getLocationData(string $location): ?array
 	{
-		$data = array();
+        $data     = [];
 		$location = trim($location);
-		$parsedAddress = self::parseAddress($location);
+		$parse    = self::parseAddress($location);
 
-		if (defined('ADDRESS_SERVICE') && $location && isset($parsedAddress->street_number)) {
-			$url = new Url(ADDRESS_SERVICE.'/home.php');
-			$url->queryType = 'address';
-			$url->format = 'xml';
-			$url->query = $location;
+		if (defined('ADDRESS_SERVICE') && isset($parse['street_number'])) {
+			$url = new Url(ADDRESS_SERVICE.'/addresses');
+			$url->format  = 'json';
+			$url->address = $location;
 
-			$xml = simplexml_load_string(URL::get($url));
-			if (count($xml)==1) {
-				$data = self::extractAddressData($xml->address,$parsedAddress);
+			$searchResult = self::loadJsonResponse($url->__toString());
+			if ($searchResult && count($searchResult)==1) {
+                $info = self::addressInfo((int)$searchResult[0]['id']);
+                if ($info) {
+                    $data = self::extractAddressData($info, $parse);
+                }
 			}
 		}
 		return $data;
 	}
 
-	/**
-	 * @param string $query
-	 * @return array
-	 */
-	public static function searchAddresses($query)
+	public static function searchAddresses(string $query): array
 	{
-		$results = array();
-		if (defined('ADDRESS_SERVICE')) {
-			$url = new Url(ADDRESS_SERVICE);
-			$url->queryType = 'address';
-			$url->format = 'xml';
-			$url->query = $query;
+        $query   = trim($query);
+        $results = [];
+        if (defined('ADDRESS_SERVICE')) {
+			$url = new Url(ADDRESS_SERVICE.'/addresses');
+			$url->format  = 'json';
+			$url->address = $query;
 
-			$xml = simplexml_load_string(Url::get($url));
-			foreach ($xml as $address) {
-				$data = self::extractAddressData($address,self::parseAddress($query));
-				$results[$data['location']] = $data;
+			$searchResult = self::loadJsonResponse($url->__toString());
+			if ($searchResult) {
+                foreach ($searchResult as $address) {
+                    $data = [
+                        'location'  => $address['streetAddress'],
+                        'addressId' => $address['id'           ],
+                        'city'      => $address['city'         ]
+                    ];
+                }
 			}
-		}
-		return $results;
+        }
+        return $results;
+	}
+
+	public static function addressInfo(int $address_id): ?array
+	{
+        if (defined('ADDRESS_SERVICE')) {
+            $url = ADDRESS_SERVICE."/addresses/$address_id?format=json";
+            return self::loadJsonResponse($url);
+        }
 	}
 
 	/**
-	 * @param string $query
-	 * @return array
+	 * @param  string $address
+	 * @return array            Data array from json web service
 	 */
-	public static function searchStreets($query)
-	{
-		$results = array();
-		if (defined('ADDRESS_SERVICE')) {
-			$url = new Url(ADDRESS_SERVICE);
-			$url->queryType = 'street';
-			$url->format = 'xml';
-			$url->query = $query;
-
-			$xml = simplexml_load_string(Url::get($url));
-			foreach ($xml as $street) {
-				$results["$street[name]"] = "$street[id]";
-			}
-		}
-		return $results;
-	}
-
-	/**
-	 * @param string $address
-	 * @return SimpleXMLElement
-	 */
-	public static function parseAddress($address)
+	public static function parseAddress(string $address): ?array
 	{
 		if (defined('ADDRESS_SERVICE')) {
-			$url = new Url(ADDRESS_SERVICE.'/addresses/parse.php');
-			$url->format = 'xml';
+			$url          = new Url(ADDRESS_SERVICE.'/addresses/parse');
+			$url->format  = 'json';
 			$url->address = $address;
-			return simplexml_load_string(Url::get($url));
+			return self::loadJsonResponse($url->__toString());
 		}
 	}
 
 	/**
-	 * @param SimpleXMLElement $address The address node
-	 * @param array $parsedAddress
+	 * @see https://github.com/City-of-Bloomington/master_address/blob/master/src/Domain/Addresses/UseCases/Info/InfoResponse.php
+	 * @see https://github.com/City-of-Bloomington/master_address/blob/master/src/Domain/Addresses/UseCases/Parse/ParseResponse.php
+	 *
+	 * @param  array $info   The  InfoResponse from Master Address
+	 * @param  array $parse  The ParseResponse from Master Address
 	 * @return array
 	 */
-	private static function extractAddressData($address,$parsedAddress)
+	private static function extractAddressData(array $info, array $parse): array
 	{
-		$data = array();
-		$data['location'] = "{$address->streetAddress}";
-		$data['addressId'] = "{$address->id}";
-		$data['city'] = "{$address->city}";
-		$data['state'] = "{$address->state}";
-		$data['zip'] = "{$address->zip}";
-		$data['latitude'] = "{$address->latitude}";
-		$data['longitude'] = "{$address->longitude}";
-		$data['township'] = "{$address->township}";
+		$data = [
+            'location'  => $info['address']['streetAddress'],
+            'addressId' => $info['address']['id'           ],
+            'city'      => $info['address']['city'         ],
+            'state'     => $info['address']['state'        ],
+            'zip'       => $info['address']['zip'          ],
+            'latitude'  => $info['address']['latitude'     ],
+            'longitude' => $info['address']['longitude'    ],
+            'township'  => $info['address']['township_name'],
+        ];
 
 		// See if there's a neighborhood association
-		$neighborhood = $address->xpath("//purpose[@type='NEIGHBORHOOD ASSOCIATION']");
-		if ($neighborhood) {
-			$data['neighborhoodAssociation'] = "{$neighborhood[0]}";
+		foreach ($info['purposes'] as $p) {
+            if ($p['purpose_type'] == 'NEIGHBORHOOD ASSOCIATION') {
+                $data['neighborhoodAssociation'] = $p['name'];
+                break;
+            }
 		}
 
 		// See if this is a subunit
-		if ($parsedAddress->subunitIdentifier) {
-			$subunit = $address->xpath("//subunit[identifier='{$parsedAddress->subunitIdentifier}']");
-			if ($subunit) {
-				$data['subunit_id'] = "{$subunit[0]['id']}";
-				$data['location'] = "$data[location] {$subunit[0]->type} {$subunit[0]->identifier}";
-			}
+		if ($parse['subunitIdentifier']) {
+            foreach ($info['subunits'] as $s) {
+                if ($s['identifier'] == $parse['subunitIdentifier']) {
+                    $data['subunit_id'] = $s['id'];
+                    $data['location'  ] = "$data[location] $s[type_code] $s[identifier]";
+                    break;
+                }
+            }
 		}
 		return $data;
 	}
+
+    private static function loadJsonResponse(string $url): ?array
+    {
+        $response = Url::get($url);
+        if ($response) {
+            $json = json_decode($response, true);
+            return $json;
+        }
+    }
 }
