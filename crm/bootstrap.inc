@@ -1,4 +1,4 @@
-<?php
+
 /**
  * Where on the filesystem this application is installed
  */
