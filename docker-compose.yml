@@ -4,15 +4,19 @@ services:
     build:
       context: ./crm
       dockerfile: Dockerfile
-  # db:
-  #   # https://packages.ubuntu.com/xenial/database/mysql-server-5.7
-  #   image: mysql:5.7
-  #   restart: always
-  #   environment:
-  #     MYSQL_ROOT_PASSWORD: password
-  #     MYSQL_USER: ureport
-  #     MYSQL_PASSWORD: ureport
-    
+  db:
+    # https://packages.ubuntu.com/xenial/database/mysql-server-5.7
+    image: mysql:5.7
+    restart: always
+    environment:
+      MYSQL_DATABASE: ureport
+      MYSQL_ROOT_PASSWORD: password
+      MYSQL_USER: ureport
+      MYSQL_PASSWORD: ureport
+    ports:
+    - "3306:3306"
+    volumes:
+    - ./crm/scripts/mysql.sql:/docker-entrypoint-initdb.d/mysql.sql
 
 
   # solr:
