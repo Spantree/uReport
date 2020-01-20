@@ -58,16 +58,7 @@ RUN a2enmod headers && \
 
 ENV APACHE_LOG_LEVEL info
 
-RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/local/bin --filename=composer --version '1.9.0'
-
 WORKDIR /app
 
-COPY ./composer.json ./composer.lock /app/
-
-# disable cache
-ENV COMPOSER_CACHE_DIR=/dev/null
-# Need to de-escalate permissions back to what the app will be running as
-RUN chown -R www-data:www-data /app
-USER www-data
-
-RUN composer install --optimize-autoloader
+RUN cd /tmp && wget https://github.com/City-of-Bloomington/uReport/releases/download/2.1.2/ureport-2.1.2.tar.gz && \
+  tar -xzvf ureport-2.1.2.tar.gz -C /app/
