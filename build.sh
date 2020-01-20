@@ -23,7 +23,7 @@ cd $DIR/crm/data/Themes/COB/public/css
 cd $DIR/crm/data/Themes/COB/vendor/City-of-Bloomington/factory-number-one
 ./gulp
 
-# Compile the Lanague files
+# Compile the Language files
 cd $DIR/crm/language
 ./build_lang.sh
 

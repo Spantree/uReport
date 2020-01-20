@@ -8,15 +8,16 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 RUN apt-get update && \
   apt-get install -y --no-install-recommends \
     debconf-utils \
+    gettext \
     git \
     gnupg \
+    libzstd-dev \
     locales \
     lsb-release \
     unzip \
     wget \
     zip \
     zlib1g-dev \
-    libzstd-dev \
   && echo 'LANG="en_US.UTF-8"' > /etc/default/locale \
   && echo 'en_US.UTF-8 UTF-8' > /etc/locale.gen \
   && LANG=en_US.UTF-8 locale-gen --purge en_US.UTF-8 \
@@ -62,3 +63,8 @@ WORKDIR /app
 
 RUN cd /tmp && wget https://github.com/City-of-Bloomington/uReport/releases/download/2.1.2/ureport-2.1.2.tar.gz && \
   tar -xzvf ureport-2.1.2.tar.gz -C /app/
+
+COPY ./ureport.conf /etc/apache2/sites-enabled/010-ureport.conf
+COPY ./site_config.inc ureport/site_config.inc
+
+ENTRYPOINT /usr/local/bin/apache2-foreground

@@ -4,6 +4,8 @@ services:
     build:
       context: ./crm
       dockerfile: Dockerfile
+    ports:
+      - "80:80"
   db:
     # https://packages.ubuntu.com/xenial/database/mysql-server-5.7
     image: mysql:5.7
